@@ -26,9 +26,9 @@ STATIC_FILES = {
     "/admin.html": "admin.html",
 }
 DEFAULT_VENDORS = [
-    {"id": "dhanush", "name": "Dhanush", "emoji": "🛒", "fee": 80},
-    {"id": "illara", "name": "Illara Hotels", "emoji": "🍽️", "fee": 100},
-    {"id": "aroma", "name": "Aroma", "emoji": "🌿", "fee": 100},
+    {"id": "dhanush", "name": "Dhanush", "emoji": "🛒", "fee": 65},
+    {"id": "illara", "name": "Illara Hotels", "emoji": "🍽️", "fee": 90},
+    {"id": "aroma", "name": "Aroma", "emoji": "🌿", "fee": 90},
 ]
 TOKENS = {}
 
@@ -100,6 +100,20 @@ def init_db():
                 "INSERT INTO vendors(id, name, emoji, fee) VALUES (?, ?, ?, ?)",
                 [(v["id"], v["name"], v["emoji"], v["fee"]) for v in DEFAULT_VENDORS],
             )
+        else:
+            for vendor in DEFAULT_VENDORS:
+                conn.execute(
+                    """
+                    UPDATE vendors
+                    SET fee = CASE
+                        WHEN id = 'dhanush' AND fee = 80 THEN 65
+                        WHEN id IN ('illara', 'aroma') AND fee = 100 THEN 90
+                        ELSE fee
+                    END
+                    WHERE id = ?
+                    """,
+                    (vendor["id"],),
+                )
 
 
 def now_utc():

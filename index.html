@@ -283,13 +283,15 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:1rem 2
 
 <script>
 const API_BASE='/api';
+const LIVE_REFRESH_MS=10000;
 const DEFAULT_VENDORS=[
-  {id:'dhanush', name:'Dhanush', emoji:'🛒', fee:80},
-  {id:'illara', name:'Illara Hotels', emoji:'🍽️', fee:100},
-  {id:'aroma', name:'Aroma', emoji:'🌿', fee:100}
+  {id:'dhanush', name:'Dhanush', emoji:'🛒', fee:65},
+  {id:'illara', name:'Illara Hotels', emoji:'🍽️', fee:90},
+  {id:'aroma', name:'Aroma', emoji:'🌿', fee:90}
 ];
 let UPI_ID='avanti102006@okhdfcbank';
 let menuCache={};
+let liveRefreshTimer=null;
 
 async function api(path,options={}){
   const res=await fetch(API_BASE+path,{
@@ -314,6 +316,22 @@ async function fetchBootstrap(){
   vendors=vendorsRes.vendors?.length?vendorsRes.vendors:DEFAULT_VENDORS;
   menuCache=menusRes.menus||{};
   UPI_ID=configRes.upiId||UPI_ID;
+}
+
+async function syncLiveData(silent=false){
+  const previousVendor=currentVendor;
+  try{
+    await fetchBootstrap();
+    if(!vendors.find(v=>v.id===previousVendor)) currentVendor=vendors[0]?.id||'';
+    else currentVendor=previousVendor;
+    renderVendorTabs();
+    renderProducts();
+    renderCart();
+  }catch(e){
+    if(!silent){
+      document.getElementById('product-grid').innerHTML='<div class="no-items">Server is offline. Start the backend to load live menus.</div>';
+    }
+  }
 }
 
 function getMenu(vid){ return menuCache[vid]||[]; }
@@ -367,9 +385,9 @@ function selectSlot(slot,el){
 function renderVendorTabs(){
   const tabs=document.getElementById('vendor-tabs');
   tabs.innerHTML='';
-  vendors.forEach((v,i)=>{
+  vendors.forEach(v=>{
     const t=document.createElement('div');
-    t.className='v-tab'+(i===0?' on':'');
+    t.className='v-tab'+(v.id===currentVendor?' on':'');
     t.textContent=v.name;
     t.addEventListener('click',function(){
       currentVendor=v.id;
@@ -600,15 +618,15 @@ async function init(){
   updateSlotUI();
   setInterval(updateSlotUI,60000);
   try{
-    await fetchBootstrap();
+    await syncLiveData();
   }catch(e){
     grid.innerHTML='<div class="no-items">Server is offline. Start the backend to load live menus.</div>';
     return;
   }
-  currentVendor=vendors[0]?.id||'';
-  renderVendorTabs();
-  renderProducts();
-  renderCart();
+  if(liveRefreshTimer) clearInterval(liveRefreshTimer);
+  liveRefreshTimer=setInterval(()=>{
+    if(!document.hidden) syncLiveData(true);
+  },LIVE_REFRESH_MS);
 }
 init();
 </script>
