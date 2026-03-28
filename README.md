@@ -1,12 +1,16 @@
-# Switch Delivery Backend
+# Switch Delivery
 
-This project now runs as a small full-stack app:
+This project now supports two backend modes:
+
+- `server.py`: local Python server with SQLite
+- `api/[...route].js`: Vercel serverless backend
+
+The frontend stays the same:
 
 - `index.html`: live customer storefront
-- `admin.html`: admin dashboard for vendors, menus, and orders
-- `server.py`: Python backend that serves the site and stores shared data in SQLite
+- `admin.html`: admin dashboard for vendors, menus, delivery fees, and orders
 
-## Run locally
+## Local run
 
 ```bash
 python3 server.py
@@ -17,28 +21,39 @@ Then open:
 - `http://localhost:8000/`
 - `http://localhost:8000/admin.html`
 
-## Shared database
+## Vercel deployment
 
-The backend stores data in:
+This repo is now set up for Vercel:
 
-- `data/switch.db`
+- static HTML is served directly
+- backend runs from `api/[...route].js`
+- data should be stored in Vercel KV
 
-That means vendor changes, menu uploads, and customer orders are saved centrally instead of inside one browser's `localStorage`.
-
-## Optional environment variables
+### Required Vercel environment variables
 
 ```bash
-SWITCH_ADMIN_PASSWORD=your-password
+SWITCH_ADMIN_PASSWORD=your-admin-password
+SWITCH_AUTH_SECRET=long-random-secret
 SWITCH_UPI_ID=your-upi-id
-SWITCH_PORT=8000
+KV_REST_API_URL=...
+KV_REST_API_TOKEN=...
 ```
 
-## Deploy
+### Important note
 
-Deploy the whole folder on any host that can run Python 3, then start:
+Without `KV_REST_API_URL` and `KV_REST_API_TOKEN`, the Vercel API falls back to temporary in-memory storage. That is only useful for quick previews and will not persist changes between serverless invocations.
 
-```bash
-python3 server.py
-```
+### Recommended Vercel setup
 
-Examples: Render, Railway, Fly.io, a VPS, or any Python-capable hosting platform.
+1. Import the project into Vercel.
+2. Create and attach a Vercel KV database.
+3. Add the environment variables above.
+4. Redeploy.
+
+After that, admin changes to vendors, menus, and delivery fees are stored centrally and the live storefront polls for updates automatically.
+
+## Current default fees
+
+- Dhanush: `65`
+- Illara Hotels: `90`
+- Aroma: `90`

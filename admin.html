@@ -724,6 +724,7 @@ function renderBackendStatus(){
   const box=document.getElementById('backend-status-box');
   box.textContent=[
     'Shared database: connected',
+    'Storage: '+(state.siteConfig.storage||'backend'),
     'Vendors: '+state.vendors.length,
     'Menu items: '+Object.values(state.menus).reduce((sum,items)=>sum+items.length,0),
     'Orders: '+state.orders.length,
