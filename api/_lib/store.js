@@ -27,14 +27,19 @@ function hasKv() {
   return Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
 }
 
-async function kvCommand(command) {
-  const res = await fetch(process.env.KV_REST_API_URL, {
-    method: "POST",
+function kvUrl(command, key, value) {
+  const base = process.env.KV_REST_API_URL || "";
+  if (command === "GET") return `${base}/get/${encodeURIComponent(key)}`;
+  if (command === "SET") return `${base}/set/${encodeURIComponent(key)}/${encodeURIComponent(value)}`;
+  throw new Error(`Unsupported KV command: ${command}`);
+}
+
+async function kvCommand(command, key, value = "") {
+  const res = await fetch(kvUrl(command, key, value), {
+    method: "GET",
     headers: {
       Authorization: `Bearer ${process.env.KV_REST_API_TOKEN}`,
-      "Content-Type": "application/json",
     },
-    body: JSON.stringify(command),
   });
   if (!res.ok) {
     throw new Error(`KV request failed with ${res.status}`);
@@ -44,43 +49,56 @@ async function kvCommand(command) {
 
 async function loadJson(key, fallback) {
   if (!hasKv()) return structuredClone(fallback);
-  const data = await kvCommand(["GET", key]);
-  if (data.result === null || data.result === undefined) return structuredClone(fallback);
-  if (typeof data.result === "string") {
-    try {
-      return JSON.parse(data.result);
-    } catch {
-      return structuredClone(fallback);
+  try {
+    const data = await kvCommand("GET", key);
+    if (data.result === null || data.result === undefined) return structuredClone(fallback);
+    if (typeof data.result === "string") {
+      try {
+        return JSON.parse(data.result);
+      } catch {
+        return structuredClone(fallback);
+      }
     }
+    return data.result;
+  } catch {
+    return structuredClone(fallback);
   }
-  return data.result;
 }
 
 async function saveJson(key, value) {
   if (!hasKv()) {
     return value;
   }
-  await kvCommand(["SET", key, JSON.stringify(value)]);
-  return value;
+  try {
+    await kvCommand("SET", key, JSON.stringify(value));
+    return value;
+  } catch {
+    // Fall back to non-persistent behavior instead of taking the whole site down.
+    return value;
+  }
 }
 
 async function ensureSeeded() {
   if (hasKv()) {
-    const vendors = await loadJson(KEYS.vendors, DEFAULT_VENDORS);
-    const menus = await loadJson(KEYS.menus, {});
-    const orders = await loadJson(KEYS.orders, []);
-    const siteConfig = await loadJson(KEYS.siteConfig, memory.siteConfig);
+    let vendors = await loadJson(KEYS.vendors, DEFAULT_VENDORS);
+    let menus = await loadJson(KEYS.menus, {});
+    let orders = await loadJson(KEYS.orders, []);
+    let siteConfig = await loadJson(KEYS.siteConfig, memory.siteConfig);
     if (!Array.isArray(vendors) || vendors.length === 0) {
       await saveJson(KEYS.vendors, DEFAULT_VENDORS);
+      vendors = DEFAULT_VENDORS;
     }
     if (!menus || typeof menus !== "object" || Array.isArray(menus)) {
       await saveJson(KEYS.menus, {});
+      menus = {};
     }
     if (!Array.isArray(orders)) {
       await saveJson(KEYS.orders, []);
+      orders = [];
     }
     if (!siteConfig || typeof siteConfig !== "object" || Array.isArray(siteConfig)) {
       await saveJson(KEYS.siteConfig, memory.siteConfig);
+      siteConfig = memory.siteConfig;
     }
     return;
   }

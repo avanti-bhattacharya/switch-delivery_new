@@ -1,0 +1,24 @@
+UPLOAD THIS ENTIRE FOLDER TO GITHUB AS THE REPO CONTENTS.
+
+Expected files inside:
+- index.html
+- admin.html
+- package.json
+- README.md
+- .gitignore
+- api/[...route].js
+- api/_lib/auth.js
+- api/_lib/store.js
+
+Do not add:
+- vercel.json
+- server.py
+- data/
+- __pycache__/
+
+Required Vercel environment variables:
+- SWITCH_ADMIN_PASSWORD
+- SWITCH_AUTH_SECRET
+- SWITCH_UPI_ID
+- KV_REST_API_URL
+- KV_REST_API_TOKEN

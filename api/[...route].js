@@ -54,9 +54,17 @@ function requireAdmin(req, res) {
 }
 
 function routeParts(req) {
-  const raw = req.query.route;
-  if (!raw) return [];
-  return Array.isArray(raw) ? raw : [raw];
+  try {
+    const url = new URL(req.url, "http://localhost");
+    return url.pathname
+      .replace(/^\/api\/?/, "")
+      .split("/")
+      .filter(Boolean);
+  } catch {
+    const raw = req.query && req.query.route;
+    if (!raw) return [];
+    return Array.isArray(raw) ? raw : [raw];
+  }
 }
 
 function normalizeVendor(vendor) {
