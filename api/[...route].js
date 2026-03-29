@@ -1,5 +1,5 @@
 const { issueAdminToken, verifyToken } = require("./_lib/auth");
-const { getMenus, getOrders, getVendors, hasKv, saveMenus, saveOrders, saveVendors } = require("./_lib/store");
+const { getMenus, getOrders, getSiteConfig, getVendors, hasKv, saveMenus, saveOrders, saveSiteConfig, saveVendors } = require("./_lib/store");
 
 const UPI_ID = process.env.SWITCH_UPI_ID || "avanti102006@okhdfcbank";
 const ADMIN_PASSWORD = process.env.SWITCH_ADMIN_PASSWORD || "switchdel1975";
@@ -88,6 +88,14 @@ function csvEscape(value) {
   return `"${String(value ?? "").replace(/"/g, '""')}"`;
 }
 
+function recentOrders(orders) {
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+  return orders.filter((order) => {
+    const time = Date.parse(order.timestamp || "");
+    return Number.isFinite(time) && time >= cutoff;
+  });
+}
+
 module.exports = async (req, res) => {
   if (req.method === "OPTIONS") {
     return sendJson(res, 204, {});
@@ -102,7 +110,13 @@ module.exports = async (req, res) => {
     }
 
     if (req.method === "GET" && path === "/site-config") {
-      return sendJson(res, 200, { upiId: UPI_ID, realtime: true, storage: hasKv() ? "vercel-kv" : "memory" });
+      const siteConfig = await getSiteConfig();
+      return sendJson(res, 200, {
+        upiId: UPI_ID,
+        realtime: true,
+        storage: hasKv() ? "vercel-kv" : "memory",
+        slots: siteConfig.slots,
+      });
     }
 
     if (req.method === "GET" && path === "/vendors") {
@@ -163,11 +177,32 @@ module.exports = async (req, res) => {
     if (!requireAdmin(req, res)) return;
 
     if (req.method === "GET" && path === "/admin/bootstrap") {
+      const siteConfig = await getSiteConfig();
       return sendJson(res, 200, {
         vendors: await getVendors(),
         menus: await getMenus(),
-        orders: await getOrders(),
-        siteConfig: { upiId: UPI_ID, storage: hasKv() ? "vercel-kv" : "memory" },
+        orders: recentOrders(await getOrders()),
+        siteConfig: { upiId: UPI_ID, storage: hasKv() ? "vercel-kv" : "memory", slots: siteConfig.slots },
+      });
+    }
+
+    if (req.method === "PATCH" && path === "/admin/site-config") {
+      const payload = await readBody(req);
+      const current = await getSiteConfig();
+      const next = {
+        ...current,
+        slots: {
+          ...current.slots,
+          ...((payload && payload.slots) || {}),
+        },
+      };
+      const valid = ["auto", "open", "closed"];
+      if (!valid.includes(next.slots.morning) || !valid.includes(next.slots.afternoon)) {
+        return sendJson(res, 400, { error: "Invalid slot state." });
+      }
+      await saveSiteConfig(next);
+      return sendJson(res, 200, {
+        siteConfig: { upiId: UPI_ID, storage: hasKv() ? "vercel-kv" : "memory", slots: next.slots },
       });
     }
 
@@ -319,7 +354,7 @@ module.exports = async (req, res) => {
     }
 
     if (req.method === "GET" && path === "/admin/orders") {
-      return sendJson(res, 200, { orders: await getOrders() });
+      return sendJson(res, 200, { orders: recentOrders(await getOrders()) });
     }
 
     if (parts[0] === "admin" && parts[1] === "orders" && parts[2] && parts[3] === "status" && req.method === "PATCH") {

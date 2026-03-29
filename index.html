@@ -292,6 +292,7 @@ const DEFAULT_VENDORS=[
 let UPI_ID='avanti102006@okhdfcbank';
 let menuCache={};
 let liveRefreshTimer=null;
+let siteConfig={slots:{morning:'auto',afternoon:'auto'}};
 
 async function api(path,options={}){
   const res=await fetch(API_BASE+path,{
@@ -316,6 +317,11 @@ async function fetchBootstrap(){
   vendors=vendorsRes.vendors?.length?vendorsRes.vendors:DEFAULT_VENDORS;
   menuCache=menusRes.menus||{};
   UPI_ID=configRes.upiId||UPI_ID;
+  siteConfig={
+    ...siteConfig,
+    ...configRes,
+    slots:{...siteConfig.slots,...(configRes.slots||{})}
+  };
 }
 
 async function syncLiveData(silent=false){
@@ -349,20 +355,24 @@ let currentTotal=0;
 function getSlotState(){
   const mins=new Date().getHours()*60+new Date().getMinutes();
   const amO=8*60,amC=12*60,pmO=14*60,pmC=19*60+30;
+  const overrides=siteConfig.slots||{};
+  const morning=overrides.morning==='open'?'open':overrides.morning==='closed'?'closed':mins>=amO&&mins<amC?'open':mins<amO?'upcoming':'closed';
+  const afternoon=overrides.afternoon==='open'?'open':overrides.afternoon==='closed'?'closed':mins>=pmO&&mins<pmC?'open':mins<pmO?'upcoming':'closed';
   return{
-    morning: mins>=amO&&mins<amC?'open':mins<amO?'upcoming':'closed',
-    afternoon: mins>=pmO&&mins<pmC?'open':mins<pmO?'upcoming':'closed',
-    anyOpen:(mins>=amO&&mins<amC)||(mins>=pmO&&mins<pmC)
+    morning,
+    afternoon,
+    anyOpen:morning==='open'||afternoon==='open'
   };
 }
 function updateSlotUI(){
   const s=getSlotState();
+  const overrides=siteConfig.slots||{};
   document.getElementById('slot-am').classList.toggle('closed',s.morning==='closed');
   document.getElementById('slot-pm').classList.toggle('closed',s.afternoon==='closed');
   const amSt=document.getElementById('slot-am-status');
   const pmSt=document.getElementById('slot-pm-status');
-  amSt.textContent=s.morning==='open'?'✓ Open now':s.morning==='upcoming'?'Opens 8:00 AM':'✗ Closed';
-  pmSt.textContent=s.afternoon==='open'?'✓ Open now':s.afternoon==='upcoming'?'Opens 2:00 PM':'✗ Closed';
+  amSt.textContent=overrides.morning==='open'?'✓ Open by admin':overrides.morning==='closed'?'✗ Closed by admin':s.morning==='open'?'✓ Open now':s.morning==='upcoming'?'Opens 8:00 AM':'✗ Closed';
+  pmSt.textContent=overrides.afternoon==='open'?'✓ Open by admin':overrides.afternoon==='closed'?'✗ Closed by admin':s.afternoon==='open'?'✓ Open now':s.afternoon==='upcoming'?'Opens 2:00 PM':'✗ Closed';
   amSt.style.color=s.morning==='open'?'#4ade80':'';
   pmSt.style.color=s.afternoon==='open'?'#4ade80':'';
   document.getElementById('closed-banner').style.display=s.anyOpen?'none':'block';

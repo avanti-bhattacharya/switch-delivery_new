@@ -129,6 +129,11 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:1rem 2
 .small-btn{background:var(--blk3);color:var(--wht);border:1px solid #333;border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer}
 .small-btn:hover{border-color:var(--y);color:var(--y)}
 .hint{font-size:12px;color:var(--muted);line-height:1.7}
+.slot-admin-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid #1a1a1a}
+.slot-admin-row:last-child{border-bottom:none}
+.slot-admin-name{font-size:13px;font-weight:600}
+.slot-admin-sub{font-size:11px;color:var(--muted);margin-top:3px}
+.slot-admin-actions{display:flex;gap:8px;flex-wrap:wrap}
 
 /* VENDOR EDITOR */
 .vendor-row{display:grid;grid-template-columns:100px 1fr 80px 80px 40px;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #1a1a1a}
@@ -287,6 +292,12 @@ Server: checking...
     </div>
 
     <div class="card">
+      <div class="card-title">Slot Controls</div>
+      <p class="hint">Force a slot open, force it closed, or leave it on the normal time-based schedule.</p>
+      <div id="slot-controls" style="margin-top:.8rem"></div>
+    </div>
+
+    <div class="card">
       <div class="card-title">Runtime notes</div>
       <div class="csv-format" style="margin-top:1rem">
 Run locally:
@@ -302,6 +313,7 @@ SWITCH_PORT=8000
 
     <div class="card">
       <div class="card-title" style="color:#e88">Danger Zone</div>
+      <p class="hint" style="margin-bottom:.8rem">Orders older than 24 hours are hidden from the admin list automatically so the dashboard stays clean.</p>
       <button class="clear-btn" onclick="clearAllOrders()" style="margin-right:8px">🗑 Clear all orders</button>
       <button class="clear-btn" onclick="clearAllMenus()">🗑 Clear all menus</button>
     </div>
@@ -386,7 +398,7 @@ function switchTab(id,el){
   if(id==='orders') renderOrders();
   if(id==='menus'){ renderMenuVendorButtons(); renderMenuPreview(); }
   if(id==='vendors') renderVendorEditor();
-  if(id==='settings') renderBackendStatus();
+  if(id==='settings'){ renderBackendStatus(); renderSlotControls(); }
 }
 
 function renderVendorEditor(){
@@ -650,12 +662,12 @@ function renderOrders(){
   const todayOrders=filtered.filter(o=>new Date(o.timestamp).toDateString()===today);
   const todayTotal=todayOrders.reduce((sum,o)=>sum+o.total,0);
   document.getElementById('stats-grid').innerHTML=`
-    <div class="stat-card"><div class="stat-label">Total Orders</div><div class="stat-val">${filtered.length}</div></div>
+    <div class="stat-card"><div class="stat-label">Last 24h Orders</div><div class="stat-val">${filtered.length}</div></div>
     <div class="stat-card"><div class="stat-label">Total Revenue</div><div class="stat-val">₹${total}</div></div>
     <div class="stat-card"><div class="stat-label">Today's Orders</div><div class="stat-val">${todayOrders.length}</div></div>
     <div class="stat-card"><div class="stat-label">Today's Revenue</div><div class="stat-val">₹${todayTotal}</div></div>`;
   if(!filtered.length){
-    document.getElementById('orders-list').innerHTML='<div class="no-orders">No orders yet. They will appear here when customers place them.</div>';
+    document.getElementById('orders-list').innerHTML='<div class="no-orders">No recent orders in the last 24 hours.</div>';
     return;
   }
   document.getElementById('orders-list').innerHTML=filtered.map(o=>{
@@ -732,6 +744,39 @@ function renderBackendStatus(){
   ].join('\n');
 }
 
+function renderSlotControls(){
+  const controls=document.getElementById('slot-controls');
+  const slots=state.siteConfig.slots||{morning:'auto',afternoon:'auto'};
+  const rows=[
+    {id:'morning',label:'Morning slot',sub:'8 AM - 12 PM'},
+    {id:'afternoon',label:'Evening slot',sub:'2 PM - 7:30 PM'}
+  ];
+  controls.innerHTML=rows.map(slot=>`
+    <div class="slot-admin-row">
+      <div>
+        <div class="slot-admin-name">${slot.label}</div>
+        <div class="slot-admin-sub">${slot.sub} · Current mode: ${slots[slot.id]||'auto'}</div>
+      </div>
+      <div class="slot-admin-actions">
+        <button class="small-btn" onclick="setSlotMode('${slot.id}','auto')" ${slots[slot.id]==='auto'?'style="border-color:#FFD700;color:#FFD700"':''}>Auto</button>
+        <button class="small-btn" onclick="setSlotMode('${slot.id}','open')" ${slots[slot.id]==='open'?'style="border-color:#4ade80;color:#4ade80"':''}>Open</button>
+        <button class="small-btn" onclick="setSlotMode('${slot.id}','closed')" ${slots[slot.id]==='closed'?'style="border-color:#ff6b6b;color:#ff6b6b"':''}>Closed</button>
+      </div>
+    </div>`).join('');
+}
+
+async function setSlotMode(slot,mode){
+  try{
+    const data=await api('/admin/site-config',{
+      method:'PATCH',
+      body:JSON.stringify({slots:{...state.siteConfig.slots,[slot]:mode}})
+    });
+    state.siteConfig={...state.siteConfig,...(data.siteConfig||{}),slots:{...(state.siteConfig.slots||{}),...((data.siteConfig||{}).slots||{})}};
+    renderBackendStatus();
+    renderSlotControls();
+  }catch(e){ alert(e.message); }
+}
+
 async function init(){
   try{
     await refreshBootstrap();
@@ -740,6 +785,7 @@ async function init(){
     renderMenuVendorButtons();
     renderMenuPreview();
     renderBackendStatus();
+    renderSlotControls();
   }catch(e){
     alert('Could not connect to the backend. Start server.py first.\n\n'+e.message);
   }

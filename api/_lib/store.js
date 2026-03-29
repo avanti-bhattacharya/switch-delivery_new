@@ -8,12 +8,19 @@ const KEYS = {
   vendors: "switch:vendors",
   menus: "switch:menus",
   orders: "switch:orders",
+  siteConfig: "switch:site-config",
 };
 
 const memory = {
   vendors: [...DEFAULT_VENDORS],
   menus: {},
   orders: [],
+  siteConfig: {
+    slots: {
+      morning: "auto",
+      afternoon: "auto",
+    },
+  },
 };
 
 function hasKv() {
@@ -62,6 +69,7 @@ async function ensureSeeded() {
     const vendors = await loadJson(KEYS.vendors, DEFAULT_VENDORS);
     const menus = await loadJson(KEYS.menus, {});
     const orders = await loadJson(KEYS.orders, []);
+    const siteConfig = await loadJson(KEYS.siteConfig, memory.siteConfig);
     if (!Array.isArray(vendors) || vendors.length === 0) {
       await saveJson(KEYS.vendors, DEFAULT_VENDORS);
     }
@@ -70,6 +78,9 @@ async function ensureSeeded() {
     }
     if (!Array.isArray(orders)) {
       await saveJson(KEYS.orders, []);
+    }
+    if (!siteConfig || typeof siteConfig !== "object" || Array.isArray(siteConfig)) {
+      await saveJson(KEYS.siteConfig, memory.siteConfig);
     }
     return;
   }
@@ -118,13 +129,45 @@ async function saveOrders(orders) {
   return saveJson(KEYS.orders, orders);
 }
 
+async function getSiteConfig() {
+  await ensureSeeded();
+  if (!hasKv()) return structuredClone(memory.siteConfig);
+  const config = await loadJson(KEYS.siteConfig, memory.siteConfig);
+  return {
+    ...memory.siteConfig,
+    ...config,
+    slots: {
+      ...memory.siteConfig.slots,
+      ...(config.slots || {}),
+    },
+  };
+}
+
+async function saveSiteConfig(siteConfig) {
+  const normalized = {
+    ...memory.siteConfig,
+    ...siteConfig,
+    slots: {
+      ...memory.siteConfig.slots,
+      ...((siteConfig && siteConfig.slots) || {}),
+    },
+  };
+  if (!hasKv()) {
+    memory.siteConfig = structuredClone(normalized);
+    return memory.siteConfig;
+  }
+  return saveJson(KEYS.siteConfig, normalized);
+}
+
 module.exports = {
   DEFAULT_VENDORS,
   getMenus,
   getOrders,
+  getSiteConfig,
   getVendors,
   hasKv,
   saveMenus,
   saveOrders,
+  saveSiteConfig,
   saveVendors,
 };
