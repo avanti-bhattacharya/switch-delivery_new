@@ -1,33 +1,19 @@
 # Switch Delivery
 
-This project now supports two backend modes:
-
-- `server.py`: local Python server with SQLite
-- `api/[...route].js`: Vercel serverless backend
-
-The frontend stays the same:
+This repo is ready for Vercel:
 
 - `index.html`: live customer storefront
-- `admin.html`: admin dashboard for vendors, menus, delivery fees, and orders
-
-## Local run
-
-```bash
-python3 server.py
-```
-
-Then open:
-
-- `http://localhost:8000/`
-- `http://localhost:8000/admin.html`
+- `admin.html`: admin dashboard for vendors, menus, delivery fees, slot controls, and recent orders
+- `api/[...route].js`: Vercel serverless backend
+- `api/_lib/*`: auth and storage helpers
 
 ## Vercel deployment
 
-This repo is now set up for Vercel:
+How it works:
 
-- static HTML is served directly
+- static HTML is served directly by Vercel
 - backend runs from `api/[...route].js`
-- data should be stored in Vercel KV
+- persistent data should be stored in Vercel KV
 
 ### Required Vercel environment variables
 
@@ -50,7 +36,11 @@ Without `KV_REST_API_URL` and `KV_REST_API_TOKEN`, the Vercel API falls back to 
 3. Add the environment variables above.
 4. Redeploy.
 
-After that, admin changes to vendors, menus, and delivery fees are stored centrally and the live storefront polls for updates automatically.
+After that:
+
+- admin changes to vendors, menus, delivery fees, and slot states are stored centrally
+- the live storefront polls for updates automatically
+- orders older than 24 hours are hidden from the admin dashboard to reduce clutter
 
 ## Current default fees
 

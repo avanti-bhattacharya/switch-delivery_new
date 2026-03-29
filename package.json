@@ -1,0 +1,10 @@
+{
+  "name": "switch-delivery-vercel",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Switch Delivery storefront and admin backend for Vercel",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20"
+  }
+}
